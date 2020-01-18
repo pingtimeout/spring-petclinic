@@ -39,6 +39,24 @@ import java.util.Map;
 @Controller
 class OwnerController {
 
+	private static final boolean SHOULD_ALLOCATE_HUMONGOUS = Boolean.getBoolean("shouldAllocateHumongous");
+
+	private static final int HUMONGOUS_SIZE_IN_MB = Integer.getInteger("humongousSizeInMB", 4);
+
+	private static final int HUMONGOUS_ARRAY_SIZE = HUMONGOUS_SIZE_IN_MB * 1000 * 1000 / 8;
+
+	static {
+		System.out
+				.println("Should allocate humongous objects (-DshouldAllocateHumongous): " + SHOULD_ALLOCATE_HUMONGOUS);
+
+		if (SHOULD_ALLOCATE_HUMONGOUS) {
+			System.out.println("Humongous objects size in bytes (-DhumongousSizeInMB): " + HUMONGOUS_SIZE_IN_MB);
+			System.out.println("Will allocate long[" + HUMONGOUS_ARRAY_SIZE + "]");
+		}
+	}
+
+	private transient volatile long[] humongous;
+
 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
 
 	private final OwnerRepository owners;
@@ -75,12 +93,14 @@ class OwnerController {
 
 	@GetMapping("/owners/find")
 	public String initFindForm(Map<String, Object> model) {
+		humongous = SHOULD_ALLOCATE_HUMONGOUS ? new long[HUMONGOUS_ARRAY_SIZE] : null;
 		model.put("owner", new Owner());
 		return "owners/findOwners";
 	}
 
 	@GetMapping("/owners")
 	public String processFindForm(Owner owner, BindingResult result, Map<String, Object> model) {
+		humongous = SHOULD_ALLOCATE_HUMONGOUS ? new long[HUMONGOUS_ARRAY_SIZE] : null;
 
 		// allow parameterless GET request for /owners to return all records
 		if (owner.getLastName() == null) {
@@ -133,6 +153,7 @@ class OwnerController {
 	 */
 	@GetMapping("/owners/{ownerId}")
 	public ModelAndView showOwner(@PathVariable("ownerId") int ownerId) {
+		humongous = SHOULD_ALLOCATE_HUMONGOUS ? new long[HUMONGOUS_ARRAY_SIZE] : null;
 		ModelAndView mav = new ModelAndView("owners/ownerDetails");
 		Owner owner = this.owners.findById(ownerId);
 		for (Pet pet : owner.getPets()) {
